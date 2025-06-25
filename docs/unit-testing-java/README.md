@@ -33,15 +33,20 @@
     - [Why Mock?](#why-mock)
     - [Mockito Setup](#mockito-setup)
     - [Creating \& Using Mocks](#creating--using-mocks)
-  - [8. Spring Boot Test Utilities](#8-spring-boot-test-utilities)
-  - [9. Advanced Testing Techniques](#9-advanced-testing-techniques)
-  - [10. Test Coverage Tools](#10-test-coverage-tools)
+  - [8. Mocking External Dependencies](#8-mocking-external-dependencies)
+    - [Mocking External API Calls](#mocking-external-api-calls)
+    - [Mocking Database Calls](#mocking-database-calls)
+    - [Mocking File System Calls](#mocking-file-system-calls)
+    - [General Tips](#general-tips)
+  - [9. Spring Boot Test Utilities](#9-spring-boot-test-utilities)
+  - [10. Advanced Testing Techniques](#10-advanced-testing-techniques)
+  - [11. Test Coverage Tools](#11-test-coverage-tools)
     - [JaCoCo](#jacoco)
     - [Pitest (Mutation Testing)](#pitest-mutation-testing)
-  - [11. Integrating with Build Tools](#11-integrating-with-build-tools)
-  - [12. Common Testing Pitfalls](#12-common-testing-pitfalls)
-  - [13. Test Reporting \& CI Integration](#13-test-reporting--ci-integration)
-  - [14. Additional Resources](#14-additional-resources)
+  - [12. Integrating with Build Tools](#12-integrating-with-build-tools)
+  - [13. Common Testing Pitfalls](#13-common-testing-pitfalls)
+  - [14. Test Reporting \& CI Integration](#14-test-reporting--ci-integration)
+  - [15. Additional Resources](#15-additional-resources)
 
 ---
 
@@ -268,7 +273,100 @@ class UserServiceTest {
 
 ---
 
-## 8. Spring Boot Test Utilities
+## 8. Mocking External Dependencies
+
+Unit tests should run in isolation, without relying on real external systems. Here's how to mock common external dependencies in Java:
+
+### Mocking External API Calls
+
+**Typical scenario:** Your code calls a REST API using an HTTP client (e.g., `RestTemplate`, `HttpClient`).
+
+**Approach:**
+- Use Mockito to mock the HTTP client and stub responses.
+- For more complex scenarios, use [MockWebServer](https://github.com/square/okhttp/tree/master/mockwebserver) (from OkHttp) to simulate a real HTTP server.
+
+**Example (Mockito):**
+```java
+RestTemplate restTemplate = mock(RestTemplate.class);
+when(restTemplate.getForObject(anyString(), eq(String.class))).thenReturn("mocked response");
+
+String result = myService.callExternalApi();
+assertEquals("mocked response", result);
+```
+
+**Example (MockWebServer):**
+```java
+MockWebServer server = new MockWebServer();
+server.enqueue(new MockResponse().setBody("Hello").setResponseCode(200));
+server.start();
+
+String baseUrl = server.url("/api").toString();
+// Configure your HTTP client to use baseUrl
+
+// ... run test ...
+
+server.shutdown();
+```
+
+### Mocking Database Calls
+
+**Typical scenario:** Your code uses JDBC, JPA, or Spring Data repositories.
+
+**Approach:**
+- Use Mockito to mock repository interfaces or DAOs.
+- For integration tests, use in-memory databases (H2, HSQLDB, Testcontainers).
+
+**Example (Mockito):**
+```java
+UserRepository repo = mock(UserRepository.class);
+when(repo.findById(1L)).thenReturn(Optional.of(new User("bob")));
+
+assertEquals("bob", repo.findById(1L).get().getName());
+```
+
+**Example (In-memory DB):**
+```java
+@DataJpaTest
+class UserRepositoryTest {
+  @Autowired UserRepository repo;
+  // Uses H2 by default
+}
+```
+
+### Mocking File System Calls
+
+**Typical scenario:** Your code reads/writes files using `File`, `Files`, or streams.
+
+**Approach:**
+- Refactor code to accept an abstraction (e.g., `InputStream`, `Path`, or a service interface).
+- Use Mockito to mock the abstraction.
+- Use [Jimfs](https://github.com/google/jimfs) for an in-memory file system.
+
+**Example (Mockito):**
+```java
+FileService fileService = mock(FileService.class);
+when(fileService.readFile("foo.txt")).thenReturn("mocked content");
+
+assertEquals("mocked content", fileService.readFile("foo.txt"));
+```
+
+**Example (Jimfs):**
+```java
+FileSystem fs = Jimfs.newFileSystem(Configuration.unix());
+Path path = fs.getPath("/test.txt");
+Files.write(path, "hello".getBytes());
+String content = Files.readString(path);
+assertEquals("hello", content);
+```
+
+### General Tips
+- Always mock at the boundary of your system, not inside your business logic.
+- Prefer constructor or setter injection for dependencies to make mocking easier.
+- For legacy code, consider using tools like PowerMock for static/final methods, but refactor toward testable design when possible.
+
+---
+
+## 9. Spring Boot Test Utilities
 
 | Annotation | Scope |
 |------------|-------|
@@ -300,7 +398,7 @@ class RepoTest {
 
 ---
 
-## 9. Advanced Testing Techniques
+## 10. Advanced Testing Techniques
 
 * **TDD** – red/green/refactor loops.
 * **BDD** – Cucumber scenarios or AssertJ fluent assertions.
@@ -310,7 +408,7 @@ class RepoTest {
 
 ---
 
-## 10. Test Coverage Tools
+## 11. Test Coverage Tools
 
 ### JaCoCo
 Add Maven plugin:
@@ -332,7 +430,7 @@ Detects weak assertions by mutating bytecode.
 
 ---
 
-## 11. Integrating with Build Tools
+## 12. Integrating with Build Tools
 
 * **Maven**: `mvn test` or `mvn verify` (includes coverage).
 * **Gradle**: `./gradlew test`.
@@ -341,7 +439,7 @@ Detects weak assertions by mutating bytecode.
 
 ---
 
-## 12. Common Testing Pitfalls
+## 13. Common Testing Pitfalls
 
 Unit testing is powerful, but common mistakes can undermine its value. Here's a detailed look at frequent pitfalls and how to avoid them:
 
@@ -469,7 +567,7 @@ A robust test suite is readable, reliable, and focused. Avoid these pitfalls to 
 
 ---
 
-## 13. Test Reporting & CI Integration
+## 14. Test Reporting & CI Integration
 
 * Generate **JUnit XML** via Maven Surefire (default) or Gradle.
 * CI examples:
@@ -480,7 +578,7 @@ A robust test suite is readable, reliable, and focused. Avoid these pitfalls to 
 
 ---
 
-## 14. Additional Resources
+## 15. Additional Resources
 * "JUnit 5 User Guide" – official docs.
 * "Practical Unit Testing with JUnit" – Tomek Kaczanowski.
 * Mockito documentation & examples.
