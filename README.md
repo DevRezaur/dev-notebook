@@ -5,3 +5,4 @@ A topic wise, markdown based notebook of software engineering topics. Complete w
 
 - [Docker](docs/docker/README.md)
 - [Unit Testing in Java](docs/unit-testing-java/README.md)
+- [Advanced Git](docs/advanced-git/README.md)
